@@ -11,6 +11,15 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+// global defines
+
+#define TRUE 1
+#define FALSE 0
+
+#define PRINTER 1
+#define REQUEST 2
+#define REPLY 3
+
 // global structure
 
 struct Message {
