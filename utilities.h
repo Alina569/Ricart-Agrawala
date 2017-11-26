@@ -20,6 +20,9 @@
 #define REQUEST 2
 #define REPLY 3
 
+#define get_random(min, max) \
+	        ((rand() % (int)(((max) + 1) - (min))) + (min))
+
 // global structure
 
 struct Message {
