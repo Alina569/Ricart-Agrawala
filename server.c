@@ -21,6 +21,9 @@ int main(int argc, char **argv){
 	}
 	
 	// delete queue
+	msgctl(printer_queue, IPC_RMID, (struct msqid_ds *) 0);
+	msgctl(request_queue, IPC_RMID, (struct msqid_ds *) 0);
+	msgctl(reply_queue, IPC_RMID, (struct msqid_ds *) 0);
 
 	return 0;
 }
