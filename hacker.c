@@ -14,10 +14,10 @@ int main(int argc, char **argv){
 
 		message.to = PRINTER;
 		message.from = getpid();
-		message.type = 0;
-		message.request = 0;
+		message.type = 0; // fixed values for the hacker messages
+		message.request = 0; // same here
 
-		sleep(sleep_time);
+		sleep(sleep_time); // sleep random time
 
 		strcpy(message.content, buffer);
 		status = msgsnd(printer_queue, &message, 1024, 0);
