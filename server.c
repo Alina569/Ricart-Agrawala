@@ -11,13 +11,17 @@ int main(int argc, char **argv){
 	printer_queue = new_queue(PRINTER);
 	request_queue = new_queue(REQUEST);
 	reply_queue = new_queue(REPLY);
-	
+
+	if (printer_queue == -1) exit(-1);
+
 	while(TRUE) {
-		status = msgrcv(printer_queue, &msg_received, 1024, PRINTER, 0);
+		status = msgrcv(printer_queue, &msg_received, MSG_QUEUE_SIZE, PRINTER, 0);
+
 		if (status == -1){
+			printf("Queue status -1. EXIT\n");
 			break;
 		}
-		printf("%s\n", msg_received);
+		printf("Message: %s\n", msg_received.content);
 	}
 	
 	// delete queue
