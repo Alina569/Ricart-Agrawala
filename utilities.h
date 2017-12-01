@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <semaphore.h>
 
 #include <sys/ipc.h>
 #include <sys/wait.h>
@@ -19,6 +20,7 @@
 #define PRINTER 1
 #define REQUEST 2
 #define REPLY 3
+#define MSG_QUEUE_SIZE 1024 + sizeof(long int)
 
 #define get_random(min, max) \
 	        ((rand() % (int)(((max) + 1) - (min))) + (min))
@@ -26,8 +28,8 @@
 // global structure
 
 struct Message {
-	int to;
-	int from;
+	long int to;
+	long int from;
 	int type;
 	int request;
 	char content[1024];
