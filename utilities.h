@@ -42,3 +42,14 @@ int new_queue(int pKey){
 	int queue = msgget(key, IPC_CREAT | 0660);
 	return queue;
 };
+
+char* concant(const char *string1, const char *string2){
+	const size_t len_str1 = strlen(string1);
+	const size_t len_str2 = strlen(string2);
+
+	char *result = malloc(len_str1 + len_str2 + 1);
+	memcpy(result, string1, len_str1);
+	memcpy(result + len_str1, string2, len_str2 + 1);
+
+	return result;
+};
