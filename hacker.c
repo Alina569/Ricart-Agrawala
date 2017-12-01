@@ -1,16 +1,19 @@
 #include "utilities.h"
 
 int main(int argc, char **argv){
-	srand(time(NULL));
 
 	struct Message message;
 	int status;
 	int printer_queue = new_queue(PRINTER);
+	if (printer_queue == -1) exit(-1);
 
 	char buffer[1024] = {"Hacker ja ja ja"};
 
+	printf("Hacker up: ID: %d", getpid());
+	fflush(stdout);
+
 	while(TRUE){
-		int sleep_time = get_random(2,4);
+		int sleep_time = get_random(5,10);
 
 		message.to = PRINTER;
 		message.from = getpid();
@@ -26,7 +29,7 @@ int main(int argc, char **argv){
 			printf("Failed message");
 			exit(-1);
 		}
-		printf("Message sent");
+		printf(".");
 	}
 	return 0;
 }
