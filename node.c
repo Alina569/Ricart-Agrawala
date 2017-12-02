@@ -1,9 +1,13 @@
 #include "utilities.h"
 
+// declarations
+int reply_queue, printer_queue, request_queue;
+int *shared_memory;
+// semaphores
+
 int main(int argc, char **argv){
 	// declarations
-	int reply_queue, printer_queue, request_queue;
-	int *shared_memory, shmem_id, status;
+	int shmem_id, status;
 	int request, reply, broadcast; // message communication
 	struct Message request_message, received_message;
 
