@@ -4,7 +4,7 @@
 int reply_queue, printer_queue, request_queue;
 int *shared_memory;
 // semaphores
-int wait_sem;
+int wait_sem, mutex_sem;
 
 int main(int argc, char **argv){
 	// declarations
@@ -72,4 +72,27 @@ int main(int argc, char **argv){
 void reply_handler(){
 	shared_memory[4] = shared_memory[4] -1;
 	sem_wait(&wait_sem);
+}
+
+void request_handler(int sequence, int r_node){
+	int node, defer;
+	printf("Node %d request permission", r_node);
+
+	if (sequence > shared_memory[3]){
+		shared_memory[3] = sequence;
+	}
+
+	sem_post(&mutex_sem);
+	node = get_node(r_node, shared_memory);
+	defer = shared_memory[5] && 
+		((sequence > shared_memory[2]) ||
+		(sequence == shared_memory[2] && 
+		 r_node > shared_memory[0]));
+	sem_wait(&mutex_sem);
+
+	if (defer) {
+		shared_memory[200 + node] = 1; // set priority 1
+	} else {
+		send_message(r_node, reply_queue, MSG_REPLY, "", shared_memory);
+	}
 }
