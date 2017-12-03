@@ -4,6 +4,7 @@
 int reply_queue, printer_queue, request_queue;
 int *shared_memory;
 // semaphores
+int wait_sem;
 
 int main(int argc, char **argv){
 	// declarations
@@ -68,3 +69,7 @@ int main(int argc, char **argv){
 	return 0;
 }
 
+void reply_handler(){
+	shared_memory[4] = shared_memory[4] -1;
+	sem_wait(&wait_sem);
+}
