@@ -20,7 +20,13 @@
 #define PRINTER 1
 #define REQUEST 2
 #define REPLY 3
+
+// messages stuff
 #define MSG_QUEUE_SIZE 1024 + sizeof(long int)
+
+#define MSG_REPLY 102
+#define MSG_REQUEST 101
+#define MSG_SET 103
 
 #define get_random(min, max) \
 	        ((rand() % (int)(((max) + 1) - (min))) + (min))
