@@ -109,8 +109,8 @@ void print_handler() {
 	shared_memory[4] = shared_memory[1]-1;
 
 	printf("Broadcast for permission\n");
-	for(i=1, i < shared_memory[1]; i++){
-		send_message(shared_memory[100+i], request_queue, MSG_REQUEST, "");
+	for(i=1; i < shared_memory[1]; i++){
+		send_message(shared_memory[100+i], request_queue, MSG_REQUEST, "", shared_memory);
 	}
 	printf("Done broadcast\n");
 
@@ -124,24 +124,25 @@ void print_handler() {
 	send_message(PRINTER, printer_queue, MSG_REQUEST, buffer, shared_memory);
 
 	lines = get_random(3, 5);
-	counter = 0;
+	int counter = 0;
 	while (counter < lines){
 		sleep(1);
 		memset(buffer, 0, sizeof(buffer));
 		snprintf(buffer, sizeof(buffer), "%d: %d line of output. %d total.", shared_memory[0], counter, lines);
-		send_message(PRINTER, printer_queue, MSG_REQUEST, buffer);
+		send_message(PRINTER, printer_queue, MSG_REQUEST, buffer, shared_memory);
+		counter++;
 	}
 	sleep(1);
 	memset(buffer, 0, sizeof(buffer));
-	snprintf(buffer, sizeof(buffer), " ==== END OUTPUT FOR NODE %i ====". shared_memory[0]);
+	snprintf(buffer, sizeof(buffer), " ==== END OUTPUT FOR NODE %i ====", shared_memory[0]);
 	send_message(PRINTER, printer_queue, MSG_REQUEST, buffer, shared_memory);
 
 	shared_memory[5] = 0;
 
-	for(i=1, i < shared_memory[1]; i++) {
+	for(i=1; i < shared_memory[1]; i++) {
 		if (shared_memory[200 + i]) {
 			shared_memory[200 + i] = 0;
-			send_message(shared_memory[100 + i], reply_queue, MSG_REPLY, "");
+			send_message(shared_memory[100 + i], reply_queue, MSG_REPLY, "", shared_memory);
 		}
 	}
 	printf("DONE\n");
