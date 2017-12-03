@@ -96,3 +96,54 @@ void request_handler(int sequence, int r_node){
 		send_message(r_node, reply_queue, MSG_REPLY, "", shared_memory);
 	}
 }
+
+void print_handler() {
+	int i, lines;
+	char buffer[1024];
+
+	sem_post(&mutex_sem);
+	shared_memory[5] = 1;
+	shared_memory[2] = shared_memory[3]++;
+	sem_wait(&mutex_sem);
+
+	shared_memory[4] = shared_memory[1]-1;
+
+	printf("Broadcast for permission\n");
+	for(i=1, i < shared_memory[1]; i++){
+		send_message(shared_memory[100+i], request_queue, MSG_REQUEST, "");
+	}
+	printf("Done broadcast\n");
+
+	while(shared_memory[4] != 0) {
+		sem_wait(&wait_sem);
+	}
+
+	printf("Permissions ok\n");
+
+	snprintf(buffer, sizeof(buffer), " #### START OUTPUT NODE %i ####", shared_memory[0]);
+	send_message(PRINTER, printer_queue, MSG_REQUEST, buffer, shared_memory);
+
+	lines = get_random(3, 5);
+	counter = 0;
+	while (counter < lines){
+		sleep(1);
+		memset(buffer, 0, sizeof(buffer));
+		snprintf(buffer, sizeof(buffer), "%d: %d line of output. %d total.", shared_memory[0], counter, lines);
+		send_message(PRINTER, printer_queue, MSG_REQUEST, buffer);
+	}
+	sleep(1);
+	memset(buffer, 0, sizeof(buffer));
+	snprintf(buffer, sizeof(buffer), " ==== END OUTPUT FOR NODE %i ====". shared_memory[0]);
+	send_message(PRINTER, printer_queue, MSG_REQUEST, buffer, shared_memory);
+
+	shared_memory[5] = 0;
+
+	for(i=1, i < shared_memory[1]; i++) {
+		if (shared_memory[200 + i]) {
+			shared_memory[200 + i] = 0;
+			send_message(shared_memory[100 + i], reply_queue, MSG_REPLY, "");
+		}
+	}
+	printf("DONE\n");
+}
+
