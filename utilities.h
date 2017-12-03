@@ -35,6 +35,12 @@ struct Message {
 	char content[1024];
 };
 
+// global headers
+
+void reply_handler();
+void printer_handler();
+void request_handler(int sequence, int r_node);
+
 // global functions 
 
 int new_queue(int pKey){
@@ -44,7 +50,7 @@ int new_queue(int pKey){
 };
 
 char* concant(const char *string1, const char *string2){
-
+	const size_t len_str1 = strlen(string1);
 	const size_t len_str2 = strlen(string2);
 
 	char *result = malloc(len_str1 + len_str2 + 1);
@@ -64,7 +70,7 @@ int get_node(int id, int *shared_memory){
 		}
 	}
 	return -1;
-}
+};
 
 int send_message(int to, int queue, int type, char buffer[1024], int *shared_memory){
 	struct Message message;
@@ -77,4 +83,4 @@ int send_message(int to, int queue, int type, char buffer[1024], int *shared_mem
 
 	return msgsnd(queue, &message, MSG_QUEUE_SIZE, 0);
 
-}
+};
