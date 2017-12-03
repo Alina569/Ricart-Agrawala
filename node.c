@@ -4,7 +4,7 @@
 int reply_queue, printer_queue, request_queue;
 int *shared_memory;
 // semaphores
-int wait_sem, mutex_sem;
+int wait_sem, mutex_sem, nodes_sem;
 
 int main(int argc, char **argv){
 	// declarations
@@ -39,17 +39,51 @@ int main(int argc, char **argv){
 	// status = send_message(100, request_queue, 100, "");
 	shared_memory[100] = node_id;
 
-	if (node_id == 1){
-		// do something
-	} else {
-		// do something with the rest of the nodes
+	status = send_message(100, request_queue, 100, "", shared_memory);
+	if (status == -1) {
+		printf("Initial message error, check connection");
+		exit(-1);
 	}
+
+	if (node_id == 1){
+		shared_memory[1] = 1;
+		shared_memory[3] = 0;
+		shared_memory[300] = 0;
+	} else {
+		status = msgrcv(reply_queue, &received_message, MSG_QUEUE_SIZE, shared_memory[0], 0);
+		if (status == -1) exit(-1);
+		printf("Sponsor");
+
+		char* token;
+		int i;
+		token = strtok(received_message.content, " ");
+		sscanf(token, "%d", &i);
+		shared_memory[3] = i-1;
+
+		i = 1;
+		token = strtok(NULL, " ");
+		while(token != NULL) {
+			sscanf(token, "%d", &shared_memory[100+i]);
+			token = strtok(NULL, " ");
+			i++;
+		}
+
+		sem_post(&nodes_sem);
+		for (i=1; i < shared_memory[1] -1; i++){
+			send_message(shared_memory[100 + 1], request_queue, 100, argv[1], shared_memory);
+		}
+		printf("ACK %d", shared_memory[1] -1);
+		shared_memory[100] = shared_memory[1] -1;
+		sem_wait(&nodes_sem);
+	}
+
+
+	/* =========== request reply print ============= */
 
 	request = fork();
 
 	if (request == 0){
-		// check the request queue
-		// while TRUE
+		// some check
 	} else {
 		reply = fork();
 
