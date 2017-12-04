@@ -83,20 +83,95 @@ int main(int argc, char **argv){
 	request = fork();
 
 	if (request == 0){
-		// some check
+		while(TRUE){
+			status = msgrcv(request_queue, &received_message, MSG_QUEUE_SIZE, shared_memory[0], 0);
+			if (status == -1){
+				break;
+			}
+			printf("NODE %ld is requesting access \n", received_message.from);
+			switch(received_message.type){
+				case 100:
+					sem_wait(&nodes_sem); // P
+					printf("ACK node: %ld\n", received_message.from);
+					shared_memory[100+shared_memory[1]] = atoi(received_message.content);
+					shared_memory[1]++;
+					send_message(received_message.from, reply_queue, MSG_SET, "", shared_memory);
+					sem_post(&nodes_sem); // V
+				break;
+				default: 
+					sem_wait(&nodes_sem); // P
+					request_handler(received_message.request, received_message.from);
+					sem_post(&nodes_sem); // V
+				break;
+			}
+		}
 	} else {
 		reply = fork();
 
 		if (reply == 0){
-			// check the reply queue
-			// while true
+			while(TRUE){
+				status = msgrcv(reply_queue, &received_message, MSG_QUEUE_SIZE, shared_memory[0], 0);
+				if (status == -1) {
+					break;
+				}
+				switch(received_message.type){
+					case MSG_SET:
+						printf("NODE %ld agree \n", received_message.from);
+						shared_memory[300] = shared_memory[300] -1;
+						if (shared_memory[300] == 0){
+							printf("READY\n");
+						}
+					break;
+					default: 
+						printf("REPLY NODE %ld \n", received_message.from);
+						reply_handler();
+					break;
+				}
+			}
 		} else {
+			char buffer[1024];
 			broadcast = fork();
-			if (broadcast == 0) {
-				// check the broadcast queue
-				// while true
+			if (broadcast) {
+				while(TRUE) {
+					status = msgrcv(request_queue, &received_message, MSG_QUEUE_SIZE, 100, 0);
+					if (status == -1){
+						break;
+					}
+					if (received_message.from != shared_memory[0]){
+						sem_wait(&nodes_sem);
+						printf("NEW NODE %ld \n", received_message.from);
+						buffer[0] = shared_memory[1] + '0';
+						buffer[1] = ' ';
+						buffer[2] = shared_memory[3] + '0';
+						int position = 3;
+						int current;
+
+						for (current=0; current < shared_memory[1]; current++){
+							buffer[position] = ' ';
+							buffer[position +1] = shared_memory[100 + current] + '0';
+							position += 2;
+						}
+						buffer[position] = '\0';
+						sem_post(&nodes_sem); // V
+						send_message(received_message.from, reply_queue, 100, buffer, shared_memory);
+					}
+				}
 			} else {
-				// while TRUE
+				while(TRUE) {
+					if (shared_memory[300] == 0) {
+						printf("TRY ENTER");
+						getchar();
+						if (TRUE){
+							printf("WRITE");
+							sem_wait(&nodes_sem);
+							printer_handler();
+							sem_post(&nodes_sem);
+						}
+					}
+				}
+				printf("BYE");
+				shmctl(shmem_id, IPC_RMID, (struct shmid_ds *) 0);
+				return 0;
 			}
 		}
 	}
@@ -105,7 +180,7 @@ int main(int argc, char **argv){
 
 void reply_handler(){
 	shared_memory[4] = shared_memory[4] -1;
-	sem_wait(&wait_sem);
+	sem_post(&wait_sem); // V
 }
 
 void request_handler(int sequence, int r_node){
@@ -116,13 +191,13 @@ void request_handler(int sequence, int r_node){
 		shared_memory[3] = sequence;
 	}
 
-	sem_post(&mutex_sem);
+	sem_wait(&mutex_sem); // P
 	node = get_node(r_node, shared_memory);
 	defer = shared_memory[5] && 
 		((sequence > shared_memory[2]) ||
 		(sequence == shared_memory[2] && 
 		 r_node > shared_memory[0]));
-	sem_wait(&mutex_sem);
+	sem_post(&mutex_sem); // V
 
 	if (defer) {
 		shared_memory[200 + node] = 1; // set priority 1
@@ -131,14 +206,14 @@ void request_handler(int sequence, int r_node){
 	}
 }
 
-void print_handler() {
+void printer_handler() {
 	int i, lines;
 	char buffer[1024];
 
-	sem_post(&mutex_sem);
+	sem_wait(&mutex_sem); // P
 	shared_memory[5] = 1;
 	shared_memory[2] = shared_memory[3]++;
-	sem_wait(&mutex_sem);
+	sem_post(&mutex_sem); // V
 
 	shared_memory[4] = shared_memory[1]-1;
 
@@ -149,7 +224,7 @@ void print_handler() {
 	printf("Done broadcast\n");
 
 	while(shared_memory[4] != 0) {
-		sem_wait(&wait_sem);
+		sem_wait(&wait_sem); //P
 	}
 
 	printf("Permissions ok\n");
