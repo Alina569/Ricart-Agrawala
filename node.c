@@ -4,7 +4,7 @@
 int reply_queue, printer_queue, request_queue;
 int *shared_memory;
 // semaphores
-int wait_sem, mutex_sem, nodes_sem;
+sem_t wait_sem, mutex_sem, nodes_sem;
 
 int main(int argc, char **argv){
 	// declarations
@@ -30,13 +30,14 @@ int main(int argc, char **argv){
 	shmem_id = shmget(pid, 1024, IPC_CREAT|0640);
 
 	// create sems
-	// send messages connecting ....
+	int wait = sem_init(&wait_sem, 1, 1);
+	int mutex = sem_init(&mutex_sem, 1, 1);
+	int nodes_s = sem_init(&nodes_sem, 1, 1);
 
 	// attach sm
 	shared_memory = shmat(shmem_id, (void *) 0, 0);
 	shared_memory[0] = node_id;
 
-	// status = send_message(100, request_queue, 100, "");
 	shared_memory[100] = node_id;
 
 	status = send_message(100, request_queue, 100, "", shared_memory);
@@ -50,13 +51,16 @@ int main(int argc, char **argv){
 		shared_memory[3] = 0;
 		shared_memory[300] = 0;
 	} else {
-		status = msgrcv(reply_queue, &received_message, MSG_QUEUE_SIZE, shared_memory[0], 0);
+		status = msgrcv(reply_queue, &request_message, MSG_QUEUE_SIZE, shared_memory[0], 0);
 		if (status == -1) exit(-1);
 		printf("Sponsor");
 
 		char* token;
 		int i;
-		token = strtok(received_message.content, " ");
+		token = strtok(request_message.content, " ");
+		sscanf(token, "%d", &i);
+		shared_memory[1] = i+1;
+		token = strtok(NULL, " ");
 		sscanf(token, "%d", &i);
 		shared_memory[3] = i-1;
 
@@ -68,13 +72,13 @@ int main(int argc, char **argv){
 			i++;
 		}
 
-		sem_post(&nodes_sem);
-		for (i=1; i < shared_memory[1] -1; i++){
-			send_message(shared_memory[100 + 1], request_queue, 100, argv[1], shared_memory);
+		sem_wait(&nodes_sem); // P
+		for (i=1; i < shared_memory[1]; i++){
+			send_message(shared_memory[100 + i], request_queue, 100, argv[1], shared_memory);
 		}
 		printf("ACK %d", shared_memory[1] -1);
-		shared_memory[100] = shared_memory[1] -1;
-		sem_wait(&nodes_sem);
+		shared_memory[300] = shared_memory[1] -1;
+		sem_post(&nodes_sem); // V
 	}
 
 
@@ -131,14 +135,14 @@ int main(int argc, char **argv){
 		} else {
 			char buffer[1024];
 			broadcast = fork();
-			if (broadcast) {
+			if (broadcast == 0) {
 				while(TRUE) {
 					status = msgrcv(request_queue, &received_message, MSG_QUEUE_SIZE, 100, 0);
 					if (status == -1){
 						break;
 					}
 					if (received_message.from != shared_memory[0]){
-						sem_wait(&nodes_sem);
+						sem_wait(&nodes_sem); // P
 						printf("NEW NODE %ld \n", received_message.from);
 						buffer[0] = shared_memory[1] + '0';
 						buffer[1] = ' ';
@@ -163,9 +167,9 @@ int main(int argc, char **argv){
 						getchar();
 						if (TRUE){
 							printf("WRITE");
-							sem_wait(&nodes_sem);
+							sem_wait(&nodes_sem); // P
 							printer_handler();
-							sem_post(&nodes_sem);
+							sem_post(&nodes_sem); // V
 						}
 					}
 				}
