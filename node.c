@@ -1,6 +1,7 @@
 #include "utilities.h"
 
 #define ME 0
+#define N 1
 
 // declarations
 int reply_queue, printer_queue, request_queue;
@@ -50,19 +51,19 @@ int main(int argc, char **argv){
 	}
 
 	if (node_id == 1){
-		shared_memory[1] = 1;
+		shared_memory[N] = 1;
 		shared_memory[3] = 0;
 		shared_memory[300] = 0;
 	} else {
 		status = msgrcv(reply_queue, &request_message, MSG_QUEUE_SIZE, shared_memory[ME], 0);
 		if (status == -1) exit(-1);
-		printf("Sponsor");
+		printf("Found a sponsor\n");
 
 		char* token;
 		int i;
 		token = strtok(request_message.content, " ");
 		sscanf(token, "%d", &i);
-		shared_memory[1] = i+1;
+		shared_memory[N] = i+1;
 		token = strtok(NULL, " ");
 		sscanf(token, "%d", &i);
 		shared_memory[3] = i-1;
@@ -76,11 +77,11 @@ int main(int argc, char **argv){
 		}
 
 		sem_wait(&nodes_sem); // P
-		for (i=1; i < shared_memory[1]; i++){
+		for (i=1; i < shared_memory[N]; i++){
 			send_message(shared_memory[100 + i], request_queue, 100, argv[1], shared_memory);
 		}
-		printf("ACK %d", shared_memory[1] -1);
-		shared_memory[300] = shared_memory[1] -1;
+		printf("Accept %d node \n", shared_memory[N] -1);
+		shared_memory[300] = shared_memory[N] -1;
 		sem_post(&nodes_sem); // V
 	}
 
@@ -99,9 +100,9 @@ int main(int argc, char **argv){
 			switch(received_message.type){
 				case 100:
 					sem_wait(&nodes_sem); // P
-					printf("ACK node: %ld\n", received_message.from);
-					shared_memory[100+shared_memory[1]] = atoi(received_message.content);
-					shared_memory[1]++;
+					printf("Accept node: %ld\n", received_message.from);
+					shared_memory[100+shared_memory[N]] = atoi(received_message.content);
+					shared_memory[N]++;
 					send_message(received_message.from, reply_queue, MSG_SET, "", shared_memory);
 					sem_post(&nodes_sem); // V
 				break;
@@ -147,13 +148,13 @@ int main(int argc, char **argv){
 					if (received_message.from != shared_memory[ME]){
 						sem_wait(&nodes_sem); // P
 						printf("NEW NODE %ld \n", received_message.from);
-						buffer[0] = shared_memory[1] + '0';
+						buffer[0] = shared_memory[N] + '0';
 						buffer[1] = ' ';
 						buffer[2] = shared_memory[3] + '0';
 						int position = 3;
 						int current;
 
-						for (current=0; current < shared_memory[1]; current++){
+						for (current=0; current < shared_memory[N]; current++){
 							buffer[position] = ' ';
 							buffer[position +1] = shared_memory[100 + current] + '0';
 							position += 2;
@@ -166,16 +167,17 @@ int main(int argc, char **argv){
 			} else {
 				while(TRUE) {
 					if (shared_memory[300] == 0) {
-						printf("TRY ENTER\n");
+						printf("Press ENTER\n");
 						getchar();
-						if (flag){
-							printf("WRITE\n");
-							shared_memory[300] = 1;
+						if (TRUE){
+							printf("Writing\n");
 							sem_wait(&nodes_sem); // P
-							printer_handler();
-							shared_memory[300] = 0;
+                            if (flag) {
+                                flag = FALSE;
+                                printer_handler();
+                                flag = TRUE;
+                            }
 							sem_post(&nodes_sem); // V
-
 						}
 					}
 				}
@@ -195,7 +197,7 @@ void reply_handler(){
 
 void request_handler(int sequence, int r_node){
 	int node, defer;
-	printf("Node %d request permission", r_node);
+	printf("Node %d request permission\n", r_node);
 
 	if (sequence > shared_memory[3]){
 		shared_memory[3] = sequence;
@@ -210,8 +212,10 @@ void request_handler(int sequence, int r_node){
 	sem_post(&mutex_sem); // V
 
 	if (defer) {
+        printf("This node have priority\n");
 		shared_memory[200 + node] = 1; // set priority 1
 	} else {
+        printf("This node does not have priority\n");
 		send_message(r_node, reply_queue, MSG_REPLY, "", shared_memory);
 	}
 }
@@ -225,13 +229,13 @@ void printer_handler() {
 	shared_memory[2] = shared_memory[3]++;
 	sem_post(&mutex_sem); // V
 
-	shared_memory[4] = shared_memory[1]-1;
+	shared_memory[4] = shared_memory[N]-1;
 
 	printf("Broadcast for permission\n");
-	for(i=1; i < shared_memory[1]; i++){
-		send_message(shared_memory[100+i], request_queue, MSG_REQUEST, "", shared_memory);
+	for(i=1; i < shared_memory[N]; i++){
+		send_message(shared_memory[100+i], request_queue, MSG_REQUEST, "", shared_memory);  // nodes
 	}
-	printf("Done broadcast\n");
+	printf("Done broadcast. Waiting for permission \n");
 
 	while(shared_memory[4] != 0) {
 		sem_wait(&wait_sem); //P
@@ -242,12 +246,12 @@ void printer_handler() {
 	snprintf(buffer, sizeof(buffer), " #### START OUTPUT NODE %i ####", shared_memory[ME]);
 	send_message(PRINTER, printer_queue, MSG_REQUEST, buffer, shared_memory);
 
-	lines = get_random(3, 5);
-	int counter = 0;
-	while (counter < lines){
+	lines = get_random(10, 15);
+	int counter = 1;
+	while (counter <= lines){
 		sleep(1);
 		memset(buffer, 0, sizeof(buffer));
-		snprintf(buffer, sizeof(buffer), "%d: %d line of output. %d total.", shared_memory[ME], counter, lines);
+		snprintf(buffer, sizeof(buffer), "Node %d: %d line of output. %d total.", shared_memory[ME], counter, lines);
 		send_message(PRINTER, printer_queue, MSG_REQUEST, buffer, shared_memory);
 		counter++;
 	}
@@ -256,12 +260,12 @@ void printer_handler() {
 	snprintf(buffer, sizeof(buffer), " ==== END OUTPUT FOR NODE %i ====", shared_memory[ME]);
 	send_message(PRINTER, printer_queue, MSG_REQUEST, buffer, shared_memory);
 
-	shared_memory[5] = 0;
+	shared_memory[5] = 0; // requests cs
 
-	for(i=1; i < shared_memory[1]; i++) {
-		if (shared_memory[200 + i]) {
+	for(i=1; i < shared_memory[N]; i++) {
+		if (shared_memory[200 + i]) { // reply defered
 			shared_memory[200 + i] = 0;
-			send_message(shared_memory[100 + i], reply_queue, MSG_REPLY, "", shared_memory);
+			send_message(shared_memory[100 + i], reply_queue, MSG_REPLY, "", shared_memory); // a todos los nodes
 		}
 	}
 	printf("DONE\n");
