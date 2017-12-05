@@ -1,5 +1,7 @@
 #include "utilities.h"
 
+#define ME 0
+
 // declarations
 int reply_queue, printer_queue, request_queue;
 int *shared_memory;
@@ -13,6 +15,7 @@ int main(int argc, char **argv){
 	struct Message request_message, received_message;
 
 	pid_t pid = getpid(); // proc id
+	int flag = TRUE;
 
 	//check the number of arguments
 	if (argc < 2) {
@@ -36,7 +39,7 @@ int main(int argc, char **argv){
 
 	// attach sm
 	shared_memory = shmat(shmem_id, (void *) 0, 0);
-	shared_memory[0] = node_id;
+	shared_memory[ME] = node_id;
 
 	shared_memory[100] = node_id;
 
@@ -51,7 +54,7 @@ int main(int argc, char **argv){
 		shared_memory[3] = 0;
 		shared_memory[300] = 0;
 	} else {
-		status = msgrcv(reply_queue, &request_message, MSG_QUEUE_SIZE, shared_memory[0], 0);
+		status = msgrcv(reply_queue, &request_message, MSG_QUEUE_SIZE, shared_memory[ME], 0);
 		if (status == -1) exit(-1);
 		printf("Sponsor");
 
@@ -88,7 +91,7 @@ int main(int argc, char **argv){
 
 	if (request == 0){
 		while(TRUE){
-			status = msgrcv(request_queue, &received_message, MSG_QUEUE_SIZE, shared_memory[0], 0);
+			status = msgrcv(request_queue, &received_message, MSG_QUEUE_SIZE, shared_memory[ME], 0);
 			if (status == -1){
 				break;
 			}
@@ -102,7 +105,7 @@ int main(int argc, char **argv){
 					send_message(received_message.from, reply_queue, MSG_SET, "", shared_memory);
 					sem_post(&nodes_sem); // V
 				break;
-				default: 
+				default:
 					sem_wait(&nodes_sem); // P
 					request_handler(received_message.request, received_message.from);
 					sem_post(&nodes_sem); // V
@@ -114,7 +117,7 @@ int main(int argc, char **argv){
 
 		if (reply == 0){
 			while(TRUE){
-				status = msgrcv(reply_queue, &received_message, MSG_QUEUE_SIZE, shared_memory[0], 0);
+                status = msgrcv(reply_queue, &received_message, MSG_QUEUE_SIZE, shared_memory[ME], 0);
 				if (status == -1) {
 					break;
 				}
@@ -126,7 +129,7 @@ int main(int argc, char **argv){
 							printf("READY\n");
 						}
 					break;
-					default: 
+					default:
 						printf("REPLY NODE %ld \n", received_message.from);
 						reply_handler();
 					break;
@@ -141,7 +144,7 @@ int main(int argc, char **argv){
 					if (status == -1){
 						break;
 					}
-					if (received_message.from != shared_memory[0]){
+					if (received_message.from != shared_memory[ME]){
 						sem_wait(&nodes_sem); // P
 						printf("NEW NODE %ld \n", received_message.from);
 						buffer[0] = shared_memory[1] + '0';
@@ -163,13 +166,16 @@ int main(int argc, char **argv){
 			} else {
 				while(TRUE) {
 					if (shared_memory[300] == 0) {
-						printf("TRY ENTER");
+						printf("TRY ENTER\n");
 						getchar();
-						if (TRUE){
-							printf("WRITE");
+						if (flag){
+							printf("WRITE\n");
+							shared_memory[300] = 1;
 							sem_wait(&nodes_sem); // P
 							printer_handler();
+							shared_memory[300] = 0;
 							sem_post(&nodes_sem); // V
+
 						}
 					}
 				}
@@ -197,10 +203,10 @@ void request_handler(int sequence, int r_node){
 
 	sem_wait(&mutex_sem); // P
 	node = get_node(r_node, shared_memory);
-	defer = shared_memory[5] && 
+	defer = shared_memory[5] &&
 		((sequence > shared_memory[2]) ||
-		(sequence == shared_memory[2] && 
-		 r_node > shared_memory[0]));
+		(sequence == shared_memory[2] &&
+		 r_node > shared_memory[ME]));
 	sem_post(&mutex_sem); // V
 
 	if (defer) {
@@ -233,7 +239,7 @@ void printer_handler() {
 
 	printf("Permissions ok\n");
 
-	snprintf(buffer, sizeof(buffer), " #### START OUTPUT NODE %i ####", shared_memory[0]);
+	snprintf(buffer, sizeof(buffer), " #### START OUTPUT NODE %i ####", shared_memory[ME]);
 	send_message(PRINTER, printer_queue, MSG_REQUEST, buffer, shared_memory);
 
 	lines = get_random(3, 5);
@@ -241,13 +247,13 @@ void printer_handler() {
 	while (counter < lines){
 		sleep(1);
 		memset(buffer, 0, sizeof(buffer));
-		snprintf(buffer, sizeof(buffer), "%d: %d line of output. %d total.", shared_memory[0], counter, lines);
+		snprintf(buffer, sizeof(buffer), "%d: %d line of output. %d total.", shared_memory[ME], counter, lines);
 		send_message(PRINTER, printer_queue, MSG_REQUEST, buffer, shared_memory);
 		counter++;
 	}
 	sleep(1);
 	memset(buffer, 0, sizeof(buffer));
-	snprintf(buffer, sizeof(buffer), " ==== END OUTPUT FOR NODE %i ====", shared_memory[0]);
+	snprintf(buffer, sizeof(buffer), " ==== END OUTPUT FOR NODE %i ====", shared_memory[ME]);
 	send_message(PRINTER, printer_queue, MSG_REQUEST, buffer, shared_memory);
 
 	shared_memory[5] = 0;
@@ -260,4 +266,3 @@ void printer_handler() {
 	}
 	printf("DONE\n");
 }
-
