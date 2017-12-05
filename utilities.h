@@ -71,7 +71,7 @@ char* concant(const char *string1, const char *string2){
 int get_node(int id, int *shared_memory){
 	int i;
 	for (i = 1; i < shared_memory[1]; i++){
-		if (shared_memory[200 + i] == id) {
+		if (shared_memory[100 + i] == id) {
 			return i;
 		}
 	}
