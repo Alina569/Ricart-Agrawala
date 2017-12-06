@@ -7,7 +7,7 @@
 int reply_queue, printer_queue, request_queue;
 int *shared_memory;
 // semaphores
-sem_t wait_sem, mutex_sem, nodes_sem;
+sem_t wait_sem, mutex_sem, nodes_sem, char_sem;
 
 int main(int argc, char **argv){
 	// declarations
@@ -37,6 +37,7 @@ int main(int argc, char **argv){
 	int wait = sem_init(&wait_sem, 1, 1);
 	int mutex = sem_init(&mutex_sem, 1, 1);
 	int nodes_s = sem_init(&nodes_sem, 1, 1);
+	int char_s = sem_init(&char_sem, 1, 1);
 
 	// attach sm
 	shared_memory = shmat(shmem_id, (void *) 0, 0);
@@ -115,7 +116,6 @@ int main(int argc, char **argv){
 		}
 	} else {
 		reply = fork();
-
 		if (reply == 0){
 			while(TRUE){
                 status = msgrcv(reply_queue, &received_message, MSG_QUEUE_SIZE, shared_memory[ME], 0);
@@ -168,7 +168,9 @@ int main(int argc, char **argv){
 				while(TRUE) {
 					if (shared_memory[300] == 0) {
 						printf("Press ENTER\n");
+						// sem_post(&char_sem);
 						getchar();
+						sleep(1);
 						if (TRUE){
 							printf("Writing\n");
 							sem_wait(&nodes_sem); // P
@@ -179,6 +181,7 @@ int main(int argc, char **argv){
                             }
 							sem_post(&nodes_sem); // V
 						}
+						// sem_wait(&char_sem);
 					}
 				}
 				printf("BYE");
@@ -248,8 +251,10 @@ void printer_handler() {
 
 	lines = get_random(10, 15);
 	int counter = 1;
+	//size_t line; 
 	while (counter <= lines){
 		sleep(1);
+		// fgets(buffer, sizeof(buffer), stdin);
 		memset(buffer, 0, sizeof(buffer));
 		snprintf(buffer, sizeof(buffer), "Node %d: %d line of output. %d total.", shared_memory[ME], counter, lines);
 		send_message(PRINTER, printer_queue, MSG_REQUEST, buffer, shared_memory);
